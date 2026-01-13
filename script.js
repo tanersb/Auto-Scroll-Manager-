@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         Otomatik Scroll Yöneticisi (v3.9 Timer Buttons Style)
+// @name         Otomatik Scroll Yöneticisi
 // @namespace    @tanersb
-// @version      3.9
-// @description  Web sitelerinde otomatik kaydırma. Zaman ayarlı kaydırma butonları görseldeki gibi düzenlendi.
+// @version      4.0
+// @description  Web sitelerinde otomatik kaydırma.
 // @author       @tanersb
 // @match        *://*/*
 // @grant        none
@@ -16,7 +16,7 @@
     const widgetWidth = "55px";
 
     const baslangicGizli = true;
-    const DEBUG = true;
+    const DEBUG = false;
 
     let animationFrameId = null;
     let intervalId = null;
@@ -265,7 +265,7 @@
     controlsPanel.appendChild(btnUp);
     controlsPanel.appendChild(btnStop);
     controlsPanel.appendChild(btnDown);
-    controlsPanel.appendChild(timerBtnContainer); 
+    controlsPanel.appendChild(timerBtnContainer);
     controlsPanel.appendChild(speedInput);
     controlsPanel.appendChild(authorSign);
 
