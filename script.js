@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         Otomatik Scroll Yöneticisi
+// @name         Otomatik Scroll Yöneticisi (Akıllı Hız)
 // @namespace    @tanersb
-// @version      1.5
-// @description  Web sitelerinde otomatik kaydırma, hızlandırma ve sürükleme özellikli panel.
+// @version      2.0
+// @description  Web sitelerinde otomatik kaydırma. Manuel hız girişi ve butonla artırma entegre edildi.
 // @author       @tanersb
 // @match        *://*/*
 // @grant        none
@@ -12,8 +12,6 @@
     'use strict';
 
     const imzaMetni = "@tanersb";
-    const baslangicHizi = 1;
-    const hizArtisMiktari = 1;
     const refreshRate = 15;
     const widgetWidth = "50px";
 
@@ -27,6 +25,19 @@
     let isPanelVisible = localStorage.getItem(storageVisibleKey) === 'false' ? false : true;
     let savedTop = localStorage.getItem(storageTopKey) || '20%';
     let savedLeft = localStorage.getItem(storageLeftKey) || 'calc(100% - 60px)';
+
+    const style = document.createElement('style');
+    style.innerHTML = `
+        .tm-hide-spin::-webkit-outer-spin-button,
+        .tm-hide-spin::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        .tm-hide-spin {
+            -moz-appearance: textfield;
+        }
+    `;
+    document.head.appendChild(style);
 
     const container = document.createElement('div');
     container.style.position = 'fixed';
@@ -97,11 +108,22 @@
     btnStop.style.fontSize = '12px';
     const btnDown = createBtn('&#9660;', 'Aşağı');
 
-    const speedDisplay = document.createElement('div');
-    speedDisplay.innerText = "0";
-    speedDisplay.style.color = '#fff';
-    speedDisplay.style.fontSize = '12px';
-    speedDisplay.style.fontWeight = 'bold';
+    const speedInput = document.createElement('input');
+    speedInput.type = "number";
+    speedInput.value = "1";
+    speedInput.min = "0";
+    speedInput.className = "tm-hide-spin";
+    speedInput.style.width = "35px";
+    speedInput.style.backgroundColor = "transparent";
+    speedInput.style.border = "1px solid #555";
+    speedInput.style.borderRadius = "4px";
+    speedInput.style.color = "#fff";
+    speedInput.style.textAlign = "center";
+    speedInput.style.fontSize = "14px";
+    speedInput.style.fontWeight = "bold";
+    speedInput.style.outline = "none";
+    
+    speedInput.addEventListener('mousedown', (e) => e.stopPropagation());
 
     const authorSign = document.createElement('div');
     authorSign.innerText = imzaMetni;
@@ -113,7 +135,7 @@
     controlsPanel.appendChild(btnUp);
     controlsPanel.appendChild(btnStop);
     controlsPanel.appendChild(btnDown);
-    controlsPanel.appendChild(speedDisplay);
+    controlsPanel.appendChild(speedInput);
     controlsPanel.appendChild(authorSign);
 
     container.appendChild(toggleBtn);
@@ -154,7 +176,6 @@
 
     function updateScroll() {
         window.scrollBy(0, currentSpeed);
-        speedDisplay.innerText = Math.abs(currentSpeed);
     }
 
     function startLoop() {
@@ -165,7 +186,6 @@
         clearInterval(scrollInterval);
         scrollInterval = null;
         currentSpeed = 0;
-        speedDisplay.innerText = "0";
     }
 
     let isDragMove = false;
@@ -184,22 +204,40 @@
 
     btnUp.addEventListener('click', (e) => {
         e.stopPropagation();
-        if (currentSpeed > 0) stopLoop();
-        else {
-            if (currentSpeed === 0) currentSpeed = -baslangicHizi;
-            else currentSpeed -= hizArtisMiktari;
-            startLoop();
+        let val = parseFloat(speedInput.value);
+        if (isNaN(val) || val <= 0) val = 1;
+
+        if (currentSpeed < 0) {
+            if (Math.abs(currentSpeed) !== val) {
+                currentSpeed = -val;
+            } else {
+                currentSpeed -= 1;
+            }
+        } else {
+            currentSpeed = -val;
         }
+        
+        speedInput.value = Math.abs(currentSpeed);
+        startLoop();
     });
 
     btnDown.addEventListener('click', (e) => {
         e.stopPropagation();
-        if (currentSpeed < 0) stopLoop();
-        else {
-            if (currentSpeed === 0) currentSpeed = baslangicHizi;
-            else currentSpeed += hizArtisMiktari;
-            startLoop();
+        let val = parseFloat(speedInput.value);
+        if (isNaN(val) || val <= 0) val = 1;
+
+        if (currentSpeed > 0) {
+            if (currentSpeed !== val) {
+                currentSpeed = val;
+            } else {
+                currentSpeed += 1;
+            }
+        } else {
+            currentSpeed = val;
         }
+
+        speedInput.value = Math.abs(currentSpeed);
+        startLoop();
     });
 
     btnStop.addEventListener('click', (e) => {
