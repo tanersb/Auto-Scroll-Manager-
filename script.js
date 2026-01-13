@@ -31,7 +31,7 @@
     const widgetWidth = "55px";
 
     const baslangicGizli = true;
-    const DEBUG = true;
+    const DEBUG = false;
 
     // --- DEĞİŞKENLER ---
     let animationFrameId = null;
