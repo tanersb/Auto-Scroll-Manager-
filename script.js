@@ -1,45 +1,40 @@
 // ==UserScript==
-// @name         Otomatik Scroll Yöneticisi (v4.1 Ultimate Fix)
+// @name         Otomatik Scroll Yöneticisi 4.6
 // @namespace    @tanersb
-// @version      4.1
-// @description  Web sitelerinde otomatik kaydırma. Çift panel ve Iframe sorunları kökten çözüldü.
+// @version      4.6
+// @description  Web sitelerinde otomatik kaydırma. GUI gizlendiğinde yeşil çerçeve de gizlenir, işlem devam eder.
 // @author       @tanersb
 // @match        *://*/*
+// @updateURL    https://raw.githubusercontent.com/tanersb/Auto-Scroll-Manager/main/script.js
+// @downloadURL  https://raw.githubusercontent.com/tanersb/Auto-Scroll-Manager/main/script.js
 // @grant        none
 // ==/UserScript==
 
 (function() {
     'use strict';
 
-
     if (window.top !== window.self) return;
 
-
-    const OLD_ID = 'tm-autoscroll-widget-container-v4'; // Eski ID'ler
-    const OLD_CLASS = 'tm-autoscroll-widget'; // Olası eski classlar
-
+    const OLD_ID = 'tm-autoscroll-widget-container-v4';
     const existingId = document.getElementById(OLD_ID);
     if (existingId) existingId.remove();
-
 
     const existingClasses = document.querySelectorAll('.tm-autoscroll-cleanup-target');
     existingClasses.forEach(el => el.remove());
 
-    // --- AYARLAR ---
     const imzaMetni = "@tanersb";
     const baseSpeedMultiplier = 60;
     const widgetWidth = "55px";
-
     const baslangicGizli = true;
     const DEBUG = false;
 
-    // --- DEĞİŞKENLER ---
     let animationFrameId = null;
     let intervalId = null;
     let countdownIntervalId = null;
     let lastTime = 0;
     let currentSpeed = 0;
     let targetElement = null;
+    let highlightedElement = null;
     let mouseX = 0;
     let mouseY = 0;
     let countdownValue = 0;
@@ -73,93 +68,80 @@
         .tm-smooth-override { scroll-behavior: auto !important; }
 
         .tm-controls-panel {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 6px;
-            overflow: hidden;
-            max-height: 0;
-            opacity: 0;
+            display: flex; flex-direction: column; align-items: center; gap: 6px;
+            overflow: hidden; max-height: 0; opacity: 0;
             transform: translateY(-20px) scale(0.9);
-            padding-top: 0 !important;
-            padding-bottom: 0 !important;
+            padding-top: 0 !important; padding-bottom: 0 !important;
             transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            position: relative; z-index: 2;
         }
         .tm-panel-open {
-            max-height: 450px;
-            opacity: 1;
-            transform: translateY(0) scale(1);
-            padding-top: 8px !important;
-            padding-bottom: 8px !important;
+            max-height: 450px; opacity: 1; transform: translateY(0) scale(1);
+            padding-top: 8px !important; padding-bottom: 8px !important;
         }
 
         .tm-toggle-btn {
-            width: 100%;
-            height: 28px;
-            background-color: transparent;
-            color: #aaa;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            border-radius: 14px;
-            border-bottom: 1px solid transparent;
+            width: 100%; height: 28px; background-color: transparent; color: #aaa;
+            display: flex; align-items: center; justify-content: center; cursor: pointer;
+            transition: all 0.3s ease; border-radius: 14px; border-bottom: 1px solid transparent;
+            position: relative; z-index: 2;
         }
-        .tm-toggle-btn:hover {
-            color: #fff;
-            background-color: rgba(255,255,255,0.05);
-        }
+        .tm-toggle-btn:hover { color: #fff; background-color: rgba(255,255,255,0.05); }
         .tm-container-open .tm-toggle-btn {
-            border-radius: 14px 14px 0 0;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
+            border-radius: 14px 14px 0 0; border-bottom: 1px solid rgba(255,255,255,0.1);
         }
 
-        .tm-toggle-icon {
-             display: inline-block;
-             font-size: 20px;
-             line-height: 1;
-             transition: transform 0.15s ease-out;
-        }
-        .tm-toggle-btn:active .tm-toggle-icon {
-             transform: scale(0.8);
-             color: #fff;
-        }
+        .tm-toggle-icon { display: inline-block; font-size: 20px; line-height: 1; transition: transform 0.15s ease-out; }
+        .tm-toggle-btn:active .tm-toggle-icon { transform: scale(0.8); color: #fff; }
 
         .tm-timer-btn-container {
-            display: flex;
-            flex-direction: row;
-            gap: 4px;
-            width: 100%;
-            justify-content: center;
-            margin-top: 4px;
+            display: flex; flex-direction: row; gap: 4px; width: 100%;
+            justify-content: center; margin-top: 4px;
+        }
+        .tm-timer-btn {
+            width: 24px; height: 24px; cursor: pointer; border: none; border-radius: 8px;
+            background: linear-gradient(145deg, #444, #2a2a2a); color: #fb8c00;
+            font-weight: bold; font-size: 14px; display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 2px 3px rgba(0,0,0,0.3), inset 0 1px 1px rgba(255,255,255,0.1);
+            border: 1px solid #553300; pointer-events: auto; transition: all 0.1s ease;
         }
 
-        .tm-timer-btn {
-            width: 24px;
-            height: 24px;
-            cursor: pointer;
-            border: none;
-            border-radius: 8px;
-            background: linear-gradient(145deg, #444, #2a2a2a);
-            color: #fb8c00;
-            font-weight: bold;
-            font-size: 14px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 2px 3px rgba(0,0,0,0.3), inset 0 1px 1px rgba(255,255,255,0.1);
-            border: 1px solid #553300;
-            pointer-events: auto;
-            transition: all 0.1s ease;
+        .tm-guide-overlay {
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            pointer-events: none; z-index: 1; border-radius: 14px;
+            opacity: 0; transition: opacity 0.5s ease;
+        }
+        .tm-guide-active { opacity: 1; }
+
+        .tm-mode-continuous {
+            background: linear-gradient(180deg, transparent 0%, rgba(0, 255, 255, 0.08) 50%, transparent 100%);
+            background-size: 100% 200%;
+            background-repeat: no-repeat;
+        }
+        .tm-mode-timer {
+            background: linear-gradient(180deg, transparent 0%, rgba(255, 140, 0, 0.4) 50%, transparent 100%);
+            background-size: 100% 50%;
+            background-repeat: no-repeat;
+        }
+
+        @keyframes tm-flow-down { 0% { background-position: 0% -100%; } 100% { background-position: 0% 200%; } }
+        @keyframes tm-flow-up { 0% { background-position: 0% 200%; } 100% { background-position: 0% -100%; } }
+
+        .tm-anim-down { animation: tm-flow-down linear infinite; }
+        .tm-anim-up { animation: tm-flow-up linear infinite; }
+
+        .tm-target-highlight {
+            outline: 2px solid rgba(76, 175, 80, 0.8) !important;
+            outline-offset: -2px;
+            box-shadow: inset 0 0 15px rgba(76, 175, 80, 0.2) !important;
+            transition: outline 0.2s ease, box-shadow 0.2s ease;
         }
     `;
     document.head.appendChild(style);
 
-    // --- ARAYÜZ ---
     const container = document.createElement('div');
-    container.id = OLD_ID; // ID Ataması
-    container.className = 'tm-autoscroll-cleanup-target'; // Temizlik için class
+    container.id = OLD_ID;
+    container.className = 'tm-autoscroll-cleanup-target';
     container.style.position = 'fixed';
     container.style.top = savedTop;
     container.style.left = savedLeft;
@@ -176,13 +158,14 @@
     container.style.pointerEvents = 'auto';
     container.style.transition = 'box-shadow 0.3s ease';
 
-    if (isPanelVisible) {
-        container.classList.add('tm-container-open');
-    }
+    if (isPanelVisible) container.classList.add('tm-container-open');
+
+    const guideOverlay = document.createElement('div');
+    guideOverlay.className = 'tm-guide-overlay';
+    container.appendChild(guideOverlay);
 
     const toggleBtn = document.createElement('div');
     toggleBtn.className = 'tm-toggle-btn';
-
     const iconOpen = '<span class="tm-toggle-icon">&#65123;</span>';
     const iconClosed = '<span class="tm-toggle-icon">&#9776;</span>';
     toggleBtn.innerHTML = isPanelVisible ? iconOpen : iconClosed;
@@ -191,15 +174,11 @@
     controlsPanel.className = 'tm-controls-panel' + (isPanelVisible ? ' tm-panel-open' : '');
 
     const btnStyle = `
-        width: 42px; height: 38px;
-        cursor: pointer; border: none; border-radius: 10px;
-        background: linear-gradient(145deg, #3a3a3a, #222);
-        color: #eee; font-weight: bold; font-size: 18px;
-        display: flex; align-items: center; justify-content: center;
+        width: 42px; height: 38px; cursor: pointer; border: none; border-radius: 10px;
+        background: linear-gradient(145deg, #3a3a3a, #222); color: #eee;
+        font-weight: bold; font-size: 18px; display: flex; align-items: center; justify-content: center;
         box-shadow: 0 3px 5px rgba(0,0,0,0.3), inset 0 1px 1px rgba(255,255,255,0.1);
-        border: 1px solid #444;
-        pointer-events: auto;
-        transition: all 0.1s ease;
+        border: 1px solid #444; pointer-events: auto; transition: all 0.1s ease;
     `;
 
     function createBtn(html, title, colorOverride, styleOverride) {
@@ -224,56 +203,39 @@
 
     const timerBtnContainer = document.createElement('div');
     timerBtnContainer.className = 'tm-timer-btn-container';
-
     const btnTimerUp = createBtn('&#9650;', 'Süreli Yukarı (Timer)', null, ' ');
     btnTimerUp.className = 'tm-timer-btn tm-btn-hover';
     const btnTimerDown = createBtn('&#9660;', 'Süreli Aşağı (Timer)', null, ' ');
     btnTimerDown.className = 'tm-timer-btn tm-btn-hover';
-
     timerBtnContainer.appendChild(btnTimerUp);
     timerBtnContainer.appendChild(btnTimerDown);
 
     const speedInput = document.createElement('input');
-    speedInput.type = "number";
-    speedInput.value = "10";
-    speedInput.min = "1";
+    speedInput.type = "number"; speedInput.value = "10"; speedInput.min = "1";
     speedInput.className = "tm-hide-spin";
-    speedInput.style.width = "42px";
-    speedInput.style.padding = "4px 0";
-    speedInput.style.backgroundColor = "#111";
-    speedInput.style.border = "1px solid #333";
-    speedInput.style.borderRadius = "6px";
-    speedInput.style.color = "#0f0";
-    speedInput.style.textAlign = "center";
-    speedInput.style.fontSize = "13px";
-    speedInput.style.fontWeight = "bold";
-    speedInput.style.outline = "none";
+    speedInput.style.width = "42px"; speedInput.style.padding = "4px 0";
+    speedInput.style.backgroundColor = "#111"; speedInput.style.border = "1px solid #333";
+    speedInput.style.borderRadius = "6px"; speedInput.style.color = "#0f0";
+    speedInput.style.textAlign = "center"; speedInput.style.fontSize = "13px";
+    speedInput.style.fontWeight = "bold"; speedInput.style.outline = "none";
     speedInput.style.boxShadow = "inset 0 2px 3px rgba(0,0,0,0.5)";
     speedInput.style.marginTop = "4px";
     speedInput.addEventListener('mousedown', (e) => e.stopPropagation());
 
     const authorSign = document.createElement('div');
     authorSign.innerText = imzaMetni;
-    authorSign.style.color = '#444';
-    authorSign.style.fontSize = '8px';
-    authorSign.style.marginTop = '4px';
-    authorSign.style.letterSpacing = '1px';
+    authorSign.style.color = '#444'; authorSign.style.fontSize = '8px';
+    authorSign.style.marginTop = '4px'; authorSign.style.letterSpacing = '1px';
 
     let debugInfo = null;
     if (DEBUG) {
         debugInfo = document.createElement('div');
-        debugInfo.style.fontSize = '8px';
-        debugInfo.style.color = '#00ff00';
-        debugInfo.style.marginTop = '2px';
-        debugInfo.style.marginBottom = '4px';
-        debugInfo.style.textAlign = 'left';
-        debugInfo.style.width = '90%';
-        debugInfo.style.padding = '4px';
-        debugInfo.style.backgroundColor = 'rgba(0,255,0,0.05)';
-        debugInfo.style.borderRadius = '4px';
-        debugInfo.style.lineHeight = '1.3';
-        debugInfo.style.whiteSpace = 'pre';
-        debugInfo.innerText = "RDY";
+        debugInfo.style.fontSize = '8px'; debugInfo.style.color = '#00ff00';
+        debugInfo.style.marginTop = '2px'; debugInfo.style.marginBottom = '4px';
+        debugInfo.style.textAlign = 'left'; debugInfo.style.width = '90%';
+        debugInfo.style.padding = '4px'; debugInfo.style.backgroundColor = 'rgba(0,255,0,0.05)';
+        debugInfo.style.borderRadius = '4px'; debugInfo.style.lineHeight = '1.3';
+        debugInfo.style.whiteSpace = 'pre'; debugInfo.innerText = "RDY";
         controlsPanel.appendChild(debugInfo);
     }
 
@@ -289,8 +251,7 @@
     document.body.appendChild(container);
 
     let isDragging = false;
-    let dragOffsetX = 0;
-    let dragOffsetY = 0;
+    let dragOffsetX = 0, dragOffsetY = 0;
 
     toggleBtn.addEventListener('mousedown', (e) => {
         if (e.button === 0) {
@@ -302,7 +263,6 @@
             container.style.cursor = 'grabbing';
         }
     });
-
     window.addEventListener('mousemove', (e) => {
         if (isDragging) {
             e.preventDefault();
@@ -310,7 +270,6 @@
             container.style.top = (e.clientY - dragOffsetY) + 'px';
         }
     });
-
     window.addEventListener('mouseup', () => {
         if (isDragging) {
             isDragging = false;
@@ -322,98 +281,104 @@
         }
     });
 
+    function setHighlight(el) {
+        if (highlightedElement && highlightedElement !== el) {
+            highlightedElement.classList.remove('tm-target-highlight');
+        }
+
+        if (el && el !== window) {
+            highlightedElement = el;
+            if (isPanelVisible) {
+                el.classList.add('tm-target-highlight');
+            }
+        } else {
+            if (highlightedElement) highlightedElement.classList.remove('tm-target-highlight');
+            highlightedElement = null;
+        }
+    }
+
     document.addEventListener('mousedown', (e) => {
         if (container.contains(e.target)) return;
-
         let el = e.target;
         let foundScrollable = false;
-
         while (el && el !== document.body && el !== document.documentElement) {
             const style = window.getComputedStyle(el);
             const overflowY = style.overflowY;
             const isScrollable = (overflowY === 'auto' || overflowY === 'scroll') && (el.scrollHeight > el.clientHeight);
-
-            if (isScrollable) {
-                targetElement = el;
-                foundScrollable = true;
-                break;
-            }
+            if (isScrollable) { targetElement = el; foundScrollable = true; break; }
             el = el.parentElement;
         }
+        if (!foundScrollable) targetElement = window;
 
-        if (!foundScrollable) {
-            targetElement = window;
-        }
-
+        setHighlight(targetElement);
         updateDebugDisplay();
-
     }, { passive: true });
 
     function findScrollTarget() {
         if (targetElement) return targetElement;
-
-        let bestEl = window;
-        let maxArea = 0;
+        let bestEl = window; let maxArea = 0;
         const elements = document.querySelectorAll('div, section, main, ul');
         let limit = 0;
-
         for (let el of elements) {
-            limit++;
-            if (limit > 800) break;
+            limit++; if (limit > 800) break;
             if (el.clientHeight < 50 || el.clientWidth < 50) continue;
-
             const style = window.getComputedStyle(el);
             const overflowY = style.overflowY;
             const isScrollable = (overflowY === 'auto' || overflowY === 'scroll') && (el.scrollHeight > el.clientHeight);
-
             if (isScrollable) {
                 const rect = el.getBoundingClientRect();
                 const area = rect.width * rect.height;
                 if (rect.height > 300 && rect.top < window.innerHeight && rect.left < window.innerWidth) {
-                     if (area > maxArea) {
-                         maxArea = area;
-                         bestEl = el;
-                     }
+                     if (area > maxArea) { maxArea = area; bestEl = el; }
                 }
             }
         }
+        setHighlight(bestEl);
         return bestEl;
+    }
+
+    function updateLightGuide(mode, direction, speedVal) {
+        guideOverlay.className = 'tm-guide-overlay';
+        guideOverlay.style.animationDuration = '0s';
+
+        if (mode === 'stop') return;
+
+        guideOverlay.classList.add('tm-guide-active');
+
+        if (mode === 'continuous') {
+            guideOverlay.classList.add('tm-mode-continuous');
+            let duration = 12.0 / (Math.abs(speedVal) || 1);
+            if (duration < 0.3) duration = 0.3;
+            guideOverlay.style.animationDuration = duration + 's';
+        } else if (mode === 'timer') {
+            guideOverlay.classList.add('tm-mode-timer');
+            guideOverlay.style.animationDuration = '1.5s';
+        }
+
+        if (direction === 'down') {
+            guideOverlay.classList.add('tm-anim-down');
+        } else {
+            guideOverlay.classList.add('tm-anim-up');
+        }
     }
 
     function updateDebugDisplay() {
         if (!DEBUG || !debugInfo) return;
-
         let el = targetElement || window;
-        let sTop = 0;
-        let tagName = "NONE";
-        let color = "#ff3333";
-
-        if (el === window) {
-            sTop = window.scrollY;
-            tagName = "WIN";
-            color = "#00ff00";
-        } else if (el) {
-            sTop = el.scrollTop;
-            tagName = el.tagName || "DIV";
-            color = "#00ffff";
+        let sTop = 0; let tagName = "NONE"; let color = "#ff3333";
+        if (el === window) { sTop = window.scrollY; tagName = "WIN"; color = "#00ff00"; }
+        else if (el) {
+            sTop = el.scrollTop; tagName = el.tagName || "DIV"; color = "#00ffff";
             if (el.className && typeof el.className === 'string') {
                 let cls = el.className.split(' ')[0];
                 if(cls.length > 8) cls = cls.substring(0,8) + "..";
                 tagName += "." + cls;
             }
         }
-
         let modeText = `SPD:${Math.abs(currentSpeed)}`;
-        if (isTimerMode) {
-            modeText = `TMR:${countdownValue}s`;
-            color = "#fb8c00";
-        }
-
-        debugInfo.innerHTML =
-            `<span style='color:${color};font-weight:bold'>${tagName}</span>\n` +
-            `scroll:${Math.floor(sTop)}\n` +
-            `X:${mouseX} | Y:${mouseY}\n` +
-            modeText;
+        if (isTimerMode) { modeText = `TMR:${countdownValue}s`; color = "#fb8c00"; }
+        debugInfo.innerHTML = `<span style='color:${color};font-weight:bold'>${tagName}</span>\n` +
+                              `scroll:${Math.floor(sTop)}\n` + `X:${mouseX} | Y:${mouseY}\n` + modeText;
     }
 
     function step(timestamp) {
@@ -431,11 +396,8 @@
 
         if (targetElement) {
             const movePixels = (currentSpeed * baseSpeedMultiplier) * (deltaTime / 1200);
-            if (targetElement === window) {
-                window.scrollBy(0, movePixels);
-            } else {
-                targetElement.scrollBy(0, movePixels);
-            }
+            if (targetElement === window) window.scrollBy(0, movePixels);
+            else targetElement.scrollBy(0, movePixels);
         }
         updateDebugDisplay();
 
@@ -447,33 +409,26 @@
     }
 
     function stopAll() {
-        if (animationFrameId) {
-            cancelAnimationFrame(animationFrameId);
-            animationFrameId = null;
-        }
-        if (intervalId) {
-            clearInterval(intervalId);
-            intervalId = null;
-        }
-        if (countdownIntervalId) {
-            clearInterval(countdownIntervalId);
-            countdownIntervalId = null;
-        }
+        if (animationFrameId) { cancelAnimationFrame(animationFrameId); animationFrameId = null; }
+        if (intervalId) { clearInterval(intervalId); intervalId = null; }
+        if (countdownIntervalId) { clearInterval(countdownIntervalId); countdownIntervalId = null; }
         currentSpeed = 0;
         isTimerMode = false;
         countdownValue = 0;
         if (debugInfo) debugInfo.innerText = "STOP";
+        updateLightGuide('stop');
     }
 
     function triggerTimerScroll(direction) {
         stopAll();
         isTimerMode = true;
+        updateLightGuide('timer', direction, 0);
 
         if (!targetElement) targetElement = findScrollTarget();
+        setHighlight(targetElement);
 
         let seconds = parseFloat(speedInput.value) || 10;
         if(seconds < 1) seconds = 1;
-
         countdownValue = seconds;
         updateDebugDisplay();
 
@@ -485,35 +440,26 @@
 
         intervalId = setInterval(() => {
             if (!targetElement) targetElement = findScrollTarget();
-
             let scrollAmount = 0;
-            if (targetElement === window) {
-                scrollAmount = window.innerHeight;
-            } else {
-                scrollAmount = targetElement.clientHeight;
-            }
+            if (targetElement === window) scrollAmount = window.innerHeight;
+            else scrollAmount = targetElement.clientHeight;
 
             if (direction === 'up') scrollAmount = -scrollAmount;
-
-            if (targetElement === window) {
-                window.scrollBy({ top: scrollAmount, behavior: 'smooth' });
-            } else {
-                targetElement.scrollBy({ top: scrollAmount, behavior: 'smooth' });
-            }
+            if (targetElement === window) window.scrollBy({ top: scrollAmount, behavior: 'smooth' });
+            else targetElement.scrollBy({ top: scrollAmount, behavior: 'smooth' });
 
             countdownValue = seconds;
             updateDebugDisplay();
-
         }, seconds * 1000);
     }
 
     function triggerContinuous(direction) {
         stopAll();
         if (!targetElement) targetElement = findScrollTarget();
+        setHighlight(targetElement);
 
         let inputVal = parseFloat(speedInput.value) || 1;
         if(inputVal <= 0) inputVal = 1;
-
         const isInputChanged = inputVal !== Math.abs(currentSpeed);
 
         if (direction === 'down') {
@@ -525,6 +471,7 @@
         }
 
         speedInput.value = Math.abs(currentSpeed);
+        updateLightGuide('continuous', direction, currentSpeed);
 
         if (!animationFrameId) {
             lastTime = 0;
@@ -535,19 +482,10 @@
     btnUp.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); triggerContinuous('up'); });
     btnDown.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); triggerContinuous('down'); });
 
-    btnTimerUp.addEventListener('click', (e) => {
-        e.preventDefault(); e.stopPropagation();
-        triggerTimerScroll('up');
-    });
-    btnTimerDown.addEventListener('click', (e) => {
-        e.preventDefault(); e.stopPropagation();
-        triggerTimerScroll('down');
-    });
+    btnTimerUp.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); triggerTimerScroll('up'); });
+    btnTimerDown.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); triggerTimerScroll('down'); });
 
-    btnStop.addEventListener('click', (e) => {
-        e.preventDefault(); e.stopPropagation();
-        stopAll();
-    });
+    btnStop.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); stopAll(); });
 
     let isDragMove = false;
     toggleBtn.addEventListener('mousemove', () => { if(isDragging) isDragMove = true; });
@@ -556,17 +494,17 @@
     toggleBtn.addEventListener('click', (e) => {
         if (!isDragMove) {
             isPanelVisible = !isPanelVisible;
-
             if (isPanelVisible) {
                 container.classList.add('tm-container-open');
                 controlsPanel.classList.add('tm-panel-open');
                 toggleBtn.innerHTML = iconOpen;
+                if (highlightedElement) highlightedElement.classList.add('tm-target-highlight');
             } else {
                 container.classList.remove('tm-container-open');
                 controlsPanel.classList.remove('tm-panel-open');
                 toggleBtn.innerHTML = iconClosed;
+                if (highlightedElement) highlightedElement.classList.remove('tm-target-highlight');
             }
-
             if (!baslangicGizli) localStorage.setItem(storageVisibleKey, isPanelVisible);
         }
     });
