@@ -20,11 +20,11 @@
 ---
 
 ## 📸 Preview
-<div align="center">
+
 ![Auto Scroll Manager Interface](5138_firefox_fug2ToUI0I.gif)
 
 > *The widget launches in a minimized state (icon mode) to keep your screen clutter-free.*
-</div>
+
 ---
 
 ## 🌟 Key Features
